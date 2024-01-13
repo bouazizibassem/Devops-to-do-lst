@@ -1,0 +1,63 @@
+stages:
+  - install
+  - build
+  - unit_test
+  - integration_test
+  - deploy
+
+install_dependencies:
+  stage: install
+  image: node:18.16.1
+  script:
+    - apt-get update -qy
+    - npm install -g npm@9.5.1 # Update npm to a specific version, if required
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+
+# Jobs for the First Pipeline (Triggered by Merge Requests)
+build_job_mr:
+  stage: build
+  image: node:18.16.1
+  script:
+    - cd Devops-to-do-lst
+    - npm install
+    - npm run build
+  only:
+    - merge_requests
+    - develop
+  dependencies:
+    - install_dependencies
+
+unit_test_job_mr:
+  stage: unit_test
+  image: node:18.16.1
+  script:
+    - cd server
+    - npm install
+    - npm test
+  only:
+    - merge_requests
+    - develop
+  dependencies:
+    - install_dependencies
+
+integration_test_job_mr:
+  stage: integration_test
+  image: cypress/browsers:node18.12.0-chrome107
+  services:
+    - name: mongo:latest
+      alias: mongodb
+  script:
+    - cd server
+    - npm install
+    - npm start &
+    - cd ..
+    - cd todoapp
+    - npm install
+    - npx cypress run
+  only:
+    - merge_requests
+    - develop
+  dependencies:
+    - install_dependencies
